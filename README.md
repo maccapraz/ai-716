@@ -8,6 +8,20 @@ complete, reproducible pipeline for the CNN1D, LSTM, and CNN-LSTM models.
 > **Course:** AI-716 Advanced Artificial Intelligence · Capitol Technology University
 > **Author:** Carlos Prazeres
 
+## Two ways to run this project
+
+There are two equivalent entry points; either reproduces the reported results.
+
+1. **Notebook (original)** — `notebooks/ecg_arrhythmia.ipynb` is the end-to-end Colab
+   notebook that produced the Milestone C results. Best for reading the analysis top to
+   bottom with inline figures and commentary.
+2. **Modular scripts** — the `src/` package mirrors the same pipeline as importable,
+   testable modules (`data`, `preprocessing`, `models`, `train`, `evaluate`). Best for
+   re-running individual stages or extending the code.
+
+The two share the same preprocessing, split, architectures, and hyperparameters; choose
+whichever fits your workflow.
+
 ---
 
 ## Key result (DS2 inter-patient test)
@@ -95,17 +109,19 @@ pandas
 
 ## Run instructions
 
-**Option A — Colab (as originally executed):**
+**Option A — Notebook (as originally executed):**
 Open `notebooks/ecg_arrhythmia.ipynb`, set runtime to GPU (Tesla T4), and run all cells
 top to bottom. The first run downloads and caches beat tensors to `cache/`; later runs skip
-re-segmentation.
+re-segmentation. This is the original artifact that produced the reported results.
 
-**Option B — Local scripts (if modularized):**
+**Option B — Modular scripts:**
 ```bash
-python -m src.data          # download + preprocess + cache
-python -m src.train         # train CNN1D, LSTM, CNN-LSTM
+python -m src.data          # download + preprocess + cache all splits
+python -m src.train         # train CNN1D, LSTM, CNN-LSTM (saves checkpoints + rr_stats)
 python -m src.evaluate      # metrics + confusion matrices -> results/
 ```
+Both options use identical preprocessing, the de Chazal DS1/DS2 split, and the same
+hyperparameters, so they reproduce the same results.
 
 The full pipeline runs in well under a minute per model once the cache is built.
 

@@ -19,7 +19,9 @@ DS2 = [100, 103, 105, 111, 113, 117, 121, 123, 200, 202, 210,
 PACED = [102, 104, 107, 217]
 
 # Patient-disjoint validation carved out of DS1 (18 train / 4 validation records).
-VAL_RECORDS = [114, 207, 223, 230]
+# These four records are chosen because between them they carry a usable number
+# of the rare S and F beats, so the macro-F1 early-stopping signal is meaningful.
+VAL_RECORDS = [114, 201, 209, 223]
 TRAIN_RECORDS = [r for r in DS1 if r not in VAL_RECORDS]
 
 DATA_DIR = "data/mitdb"

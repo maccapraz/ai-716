@@ -19,12 +19,14 @@ from sklearn.metrics import f1_score
 
 from .data import load_split
 from .models import build_model, count_params
-from .utils import set_seed, get_device, make_loader, balanced_class_weights
+from .utils import (set_seed, get_device, make_loader, balanced_class_weights,
+                    rr_standardizer, apply_rr_standardization)
 
 MODELS = ["cnn1d", "lstm", "cnn_lstm"]
 MAX_EPOCHS = 20
 PATIENCE = 5
 CKPT_DIR = "results/checkpoints"
+RR_STATS = "results/rr_stats.npz"
 
 
 def _epoch(model, loader, device, criterion, optimizer=None):
@@ -52,11 +54,20 @@ def train_model(name: str, device=None, seed: int = 42):
     set_seed(seed)
     device = device or get_device()
 
-    tr = load_split("train"); va = load_split("val")
-    train_loader = make_loader(*tr, batch_size=128, shuffle=True)
-    val_loader = make_loader(*va, batch_size=128, shuffle=False)
+    (Xtr, rr_tr, ytr) = load_split("train")
+    (Xva, rr_va, yva) = load_split("val")
 
-    class_w = balanced_class_weights(tr[2]).to(device)
+    # Standardize RR features with TRAINING statistics only (no leakage); cache them.
+    mu, sd = rr_standardizer(rr_tr)
+    os.makedirs(os.path.dirname(RR_STATS), exist_ok=True)
+    np.savez(RR_STATS, mu=mu, sd=sd)
+    rr_tr = apply_rr_standardization(rr_tr, mu, sd)
+    rr_va = apply_rr_standardization(rr_va, mu, sd)
+
+    train_loader = make_loader(Xtr, rr_tr, ytr, batch_size=128, shuffle=True)
+    val_loader = make_loader(Xva, rr_va, yva, batch_size=256, shuffle=False)
+
+    class_w = balanced_class_weights(ytr).to(device)
     criterion = nn.CrossEntropyLoss(weight=class_w)
 
     model = build_model(name).to(device)

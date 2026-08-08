@@ -1,4 +1,4 @@
-"""Shared helpers: seeding, class weights, datasets, and plotting."""
+"""Shared helpers: seeding, class weights, RR standardization, datasets, plotting."""
 from __future__ import annotations
 
 import os
@@ -21,18 +21,19 @@ def get_device() -> torch.device:
 
 
 class BeatDataset(Dataset):
-    """Wraps (beats, rr, labels) arrays as tensors."""
+    """Yields (beat[1,360], rr[3], label) so all three models share one loader."""
 
     def __init__(self, beats, rr, labels):
-        self.beats = torch.as_tensor(beats, dtype=torch.float32)
+        # channel-first (N, 1, 360) to match the notebook's convention
+        self.X = torch.as_tensor(beats, dtype=torch.float32).unsqueeze(1)
         self.rr = torch.as_tensor(rr, dtype=torch.float32)
-        self.labels = torch.as_tensor(labels, dtype=torch.long)
+        self.y = torch.as_tensor(labels, dtype=torch.long)
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.y)
 
     def __getitem__(self, i):
-        return self.beats[i], self.rr[i], self.labels[i]
+        return self.X[i], self.rr[i], self.y[i]
 
 
 def make_loader(beats, rr, labels, batch_size=128, shuffle=False):
@@ -41,10 +42,23 @@ def make_loader(beats, rr, labels, batch_size=128, shuffle=False):
 
 
 def balanced_class_weights(labels: np.ndarray, n_classes: int = 4) -> torch.Tensor:
-    """Balanced weights computed from the TRAINING split only (no leakage)."""
-    classes = np.arange(n_classes)
-    w = compute_class_weight("balanced", classes=classes, y=labels)
-    return torch.as_tensor(w, dtype=torch.float32)
+    """Balanced weights from the TRAINING split only; robust to absent classes."""
+    present = np.unique(labels)
+    w = compute_class_weight("balanced", classes=present, y=labels)
+    weights = np.ones(n_classes, dtype=np.float32)
+    weights[present] = w
+    return torch.as_tensor(weights, dtype=torch.float32)
+
+
+def rr_standardizer(rr_train: np.ndarray):
+    """Return (mu, sd) from the training RR features to standardize all splits."""
+    mu = rr_train.mean(0)
+    sd = rr_train.std(0) + 1e-8
+    return mu.astype(np.float32), sd.astype(np.float32)
+
+
+def apply_rr_standardization(rr, mu, sd):
+    return ((rr - mu) / sd).astype(np.float32)
 
 
 def plot_learning_curves(history: dict, out_path: str) -> None:

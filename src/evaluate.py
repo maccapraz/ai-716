@@ -19,11 +19,12 @@ from sklearn.metrics import (accuracy_score, f1_score, precision_recall_fscore_s
 from .data import load_split
 from .models import build_model
 from .preprocessing import CLASSES
-from .utils import get_device, make_loader
+from .utils import get_device, make_loader, apply_rr_standardization
 
 CKPT_DIR = "results/checkpoints"
 RESULTS_DIR = "results"
 FIG_DIR = "results/figures"
+RR_STATS = "results/rr_stats.npz"
 MODELS = ["cnn1d", "lstm", "cnn_lstm"]
 
 
@@ -57,7 +58,10 @@ def plot_confusion(cm, name):
 
 def evaluate_all():
     device = get_device()
-    test_loader = make_loader(*load_split("test"), batch_size=256, shuffle=False)
+    Xte, rr_te, yte = load_split("test")
+    stats = np.load(RR_STATS)                       # standardize RR with train stats
+    rr_te = apply_rr_standardization(rr_te, stats["mu"], stats["sd"])
+    test_loader = make_loader(Xte, rr_te, yte, batch_size=256, shuffle=False)
     rows, full = [], {}
     for name in MODELS:
         model = build_model(name).to(device)
